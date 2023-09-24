@@ -9,21 +9,23 @@ import pandas as pd
 from openpyxl import Workbook
 import os
 import re
- 
+from datetime import datetime, timedelta
+import pytz
+
 def activate_sheet(): 
     current_dir = os.getcwd()
-    path = f"{current_dir}/products.xlsx"
+    path = f"{current_dir}/monitoring_data.xlsx"
     if os.path.exists(path) == False:
         wb = Workbook()
-        wb.save(filename="products.xlsx")
-        df_prods = pd.DataFrame (columns = ['channel_id', 'user_id', 'text', 'timestamp'])
-        df_prods.to_excel("products.xlsx", index=False, sheet_name = "Products Data")
+        wb.save(filename="monitoring_data.xlsx")
+        df_prods = pd.DataFrame (columns = ['channel_name', 'username', 'text', 'timestamp', 'tag'])
+        df_prods.to_excel("monitoring_data.xlsx", index=False, sheet_name = "Monitor Data")
     else:
         pass
 activate_sheet()
 
 # get your api_id, api_hash, token
-tag_list = ["pakistan", "paf", "islamabad", "asia cup", "asia cup final","Premium Account","python","machine learning","natural language processing"]
+tag_list = ["pakistan", "paf","اسلام آباد", "پاکستان","pakistan air force", "pak military", "pak army","leaked database","Pakistan's military","python","machine learning","natural language processing"]
 api_id = '24989393'
 api_hash = 'e03b334b1cb52fc5c6a90f1837bbc184'
 token = '6533090846:AAEG9DUTXAOPhLGMjx6FCfbvXwlq4nZyylw'
@@ -36,6 +38,7 @@ phone = '+923316007170'
 # it to a variable client
 client = TelegramClient('session', api_id, api_hash)
 
+
   
 # connecting and building the session
 client.connect()
@@ -44,32 +47,55 @@ print("running...")
 # print(client.get_me().stringify())
 # client.send_message('Shoaib Danish', 'Hello! Talking to you from Telethon')
 
-def get_channel_id(channel_id):
+
+# new code
+# @client.on(events.NewMessage())
+# async def my_event_handler(event):
+#     async for dialog in client.iter_dialogs():
+#         print(dialog.name, 'has ID', dialog.id)
+# new code
+
+async def get_channel_name(channel_id):
     try:
-        return channel_id.chat_id
+        id = channel_id.chat_id
+        entity = await client.get_entity(id)
+        return entity.title
     except:
         return None
+    
+    
+async def get_user_name(event):
+    try:
+        sender = await event.get_sender()
+        last_name = sender.last_name if sender.last_name else ""
+        return f"{sender.first_name} {last_name}"
+    except:
+        return None
+    
 
+def get_time(message_time):
+    return str(message_time + timedelta(hours=5))
+    
 
+# pst = pytz.timezone('Asia/Karachi')
 @client.on(events.NewMessage(pattern='^.{1,50000}$'))
 async def handler(event):
     text = event.message.message if event.message.message else None
-    channel_id = get_channel_id(event.message.peer_id)
-    user_id = event.message.from_id.user_id if event.message.from_id else None
-    date = str(event.message.date)
+    channel_name = await get_channel_name(event.message.peer_id)
+    user_name = await get_user_name(event)
+    date = get_time(event.message.date)
     existance = False
-    print(tag_list)
     for tag in tag_list:
         if tag.lower() in event.message.message.lower():
-            existance = True
+            existance = tag
+            break
     if existance:
-        wb = openpyxl.load_workbook("products.xlsx") 
+        wb = openpyxl.load_workbook("monitoring_data.xlsx") 
         sheet = wb.active
-        data = (channel_id, user_id, text, date)
+        data = (channel_name, user_name, text, date, tag)
         sheet.append(data)
         current_dir = os.getcwd()
-        path = f"{current_dir}/products.xlsx"
+        path = f"{current_dir}/monitoring_data.xlsx"
         wb.save(path)
-        print("save")
         # await event.respond('Hey!')
 client.run_until_disconnected()
